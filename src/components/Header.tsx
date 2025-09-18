@@ -1,7 +1,7 @@
 import { Button } from "./ui/button";
 import { Menu, Phone } from "lucide-react";
 import { useState } from "react";
-import freshLaundryLogo from "figma:asset/49f45e220814ca125e52e8c0dfd89873315edb49.png";
+import freshLaundryLogo from "figma:asset/FreshLaundry.png";
 
 interface HeaderProps {
   onSchedulePickup?: () => void;

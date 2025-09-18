@@ -1,7 +1,7 @@
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Facebook, Twitter, Instagram, MapPin, Phone, Mail } from "lucide-react";
-import freshLaundryLogo from "figma:asset/49f45e220814ca125e52e8c0dfd89873315edb49.png";
+import freshLaundryLogo from "figma:asset/FreshLaundry.png";
 import { useState } from "react";
 
 interface FooterProps {
