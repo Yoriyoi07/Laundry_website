@@ -32,6 +32,7 @@ export function SchedulePickupModal({ isOpen, onClose }: SchedulePickupModalProp
 
   const [step, setStep] = useState(1);
   const [minDate, setMinDate] = useState('');
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const totalSteps = 3;
 
   // Set minimum date to today
@@ -60,8 +61,43 @@ export function SchedulePickupModal({ isOpen, onClose }: SchedulePickupModalProp
     '6:00 PM - 8:00 PM'
   ];
 
+  // Validation functions
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Remove all non-digit characters
+    const digitsOnly = phone.replace(/\D/g, '');
+    // Check if it starts with 09 and has exactly 11 digits
+    return digitsOnly.startsWith('09') && digitsOnly.length === 11;
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear validation error when user starts typing
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+    
+    // Real-time validation
+    if (field === 'email' && value) {
+      if (!validateEmail(value)) {
+        setValidationErrors(prev => ({ ...prev, email: 'Please enter a valid email address with @' }));
+      }
+    }
+    
+    if (field === 'phone' && value) {
+      if (!validatePhone(value)) {
+        setValidationErrors(prev => ({ ...prev, phone: 'Phone number must start with 09 and be exactly 11 digits' }));
+      }
+    }
     
     // Provide feedback for date selection
     if (field === 'pickupDate' && value) {
@@ -143,13 +179,20 @@ Pickup Details:
       estimatedWeight: '',
       urgency: 'standard'
     });
+    setValidationErrors({});
     setStep(1);
   };
 
   const isStepValid = () => {
     switch (step) {
       case 1:
-        return formData.firstName && formData.lastName && formData.email && formData.phone;
+        return formData.firstName && 
+               formData.lastName && 
+               formData.email && 
+               validateEmail(formData.email) &&
+               formData.phone && 
+               validatePhone(formData.phone) &&
+               Object.keys(validationErrors).length === 0;
       case 2:
         return formData.address && formData.city && formData.zipCode;
       case 3:
@@ -250,8 +293,11 @@ Pickup Details:
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   placeholder="john@example.com"
-                  className="focus:border-blue-400 focus:ring-blue-400"
+                  className={`focus:border-blue-400 focus:ring-blue-400 ${validationErrors.email ? 'border-red-500' : ''}`}
                 />
+                {validationErrors.email && (
+                  <p className="text-red-500 text-sm">{validationErrors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -261,9 +307,13 @@ Pickup Details:
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="(555) 123-4567"
-                  className="focus:border-blue-400 focus:ring-blue-400"
+                  placeholder="09123456789"
+                  className={`focus:border-blue-400 focus:ring-blue-400 ${validationErrors.phone ? 'border-red-500' : ''}`}
                 />
+                {validationErrors.phone && (
+                  <p className="text-red-500 text-sm">{validationErrors.phone}</p>
+                )}
+                <p className="text-xs text-gray-500">Must start with 09 and be 11 digits total</p>
               </div>
             </div>
           )}

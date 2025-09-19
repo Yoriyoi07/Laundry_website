@@ -28,6 +28,7 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
 
   const [step, setStep] = useState(1);
   const [quoteResult, setQuoteResult] = useState<any>(null);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const totalSteps = 2;
 
   const serviceTypes = [
@@ -68,8 +69,43 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
     { id: 'one-time', name: 'One-Time', discount: 0 }
   ];
 
+  // Validation functions
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Remove all non-digit characters
+    const digitsOnly = phone.replace(/\D/g, '');
+    // Check if it starts with 09 and has exactly 11 digits
+    return digitsOnly.startsWith('09') && digitsOnly.length === 11;
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear validation error when user starts typing
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+    
+    // Real-time validation
+    if (field === 'email' && value) {
+      if (!validateEmail(value)) {
+        setValidationErrors(prev => ({ ...prev, email: 'Please enter a valid email address with @' }));
+      }
+    }
+    
+    if (field === 'phone' && value) {
+      if (!validatePhone(value)) {
+        setValidationErrors(prev => ({ ...prev, phone: 'Phone number must start with 09 and be exactly 11 digits' }));
+      }
+    }
   };
 
   const calculateQuote = () => {
@@ -138,6 +174,7 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
       specialRequirements: '',
       preferredContact: 'email'
     });
+    setValidationErrors({});
     setStep(1);
     setQuoteResult(null);
   };
@@ -151,7 +188,12 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
   const isStepValid = () => {
     switch (step) {
       case 1:
-        return formData.name && formData.email && formData.phone;
+        return formData.name && 
+               formData.email && 
+               validateEmail(formData.email) &&
+               formData.phone && 
+               validatePhone(formData.phone) &&
+               Object.keys(validationErrors).length === 0;
       case 2:
         return formData.serviceType && formData.frequency;
       default:
@@ -366,8 +408,11 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     placeholder="john@example.com"
-                    className="focus:border-blue-400 focus:ring-blue-400"
+                    className={`focus:border-blue-400 focus:ring-blue-400 ${validationErrors.email ? 'border-red-500' : ''}`}
                   />
+                  {validationErrors.email && (
+                    <p className="text-red-500 text-sm">{validationErrors.email}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number *</Label>
@@ -376,9 +421,13 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder="(555) 123-4567"
-                    className="focus:border-blue-400 focus:ring-blue-400"
+                    placeholder="09123456789"
+                    className={`focus:border-blue-400 focus:ring-blue-400 ${validationErrors.phone ? 'border-red-500' : ''}`}
                   />
+                  {validationErrors.phone && (
+                    <p className="text-red-500 text-sm">{validationErrors.phone}</p>
+                  )}
+                  <p className="text-xs text-gray-500">Must start with 09 and be 11 digits total</p>
                 </div>
               </div>
 

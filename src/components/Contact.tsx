@@ -23,6 +23,8 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
     message: ''
   });
 
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+
   const contactInfo = [
     {
       icon: Phone,
@@ -57,15 +59,69 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
     }
   ];
 
+  // Validation functions
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Remove all non-digit characters
+    const digitsOnly = phone.replace(/\D/g, '');
+    // Check if it starts with 09 and has exactly 11 digits
+    return digitsOnly.startsWith('09') && digitsOnly.length === 11;
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear validation error when user starts typing
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+    
+    // Real-time validation
+    if (field === 'email' && value) {
+      if (!validateEmail(value)) {
+        setValidationErrors(prev => ({ ...prev, email: 'Please enter a valid email address with @' }));
+      }
+    }
+    
+    if (field === 'phone' && value) {
+      if (!validatePhone(value)) {
+        setValidationErrors(prev => ({ ...prev, phone: 'Phone number must start with 09 and be exactly 11 digits' }));
+      }
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate required fields
     if (!formData.firstName || !formData.email) {
       toast.error("Please fill out the required fields (Name and Email)");
+      return;
+    }
+
+    // Validate email format
+    if (!validateEmail(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    // Validate phone if provided
+    if (formData.phone && !validatePhone(formData.phone)) {
+      toast.error("Phone number must start with 09 and be exactly 11 digits");
+      return;
+    }
+
+    // Check for validation errors
+    if (Object.keys(validationErrors).length > 0) {
+      toast.error("Please fix the validation errors before submitting");
       return;
     }
 
@@ -80,6 +136,7 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
       address: '',
       message: ''
     });
+    setValidationErrors({});
   };
 
   const handleClaimDiscount = () => {
@@ -141,8 +198,12 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
                     placeholder="john@example.com"
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
+                    className={validationErrors.email ? 'border-red-500' : ''}
                     required
                   />
+                  {validationErrors.email && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.email}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -150,10 +211,15 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
                   <Input 
                     id="phone" 
                     type="tel" 
-                    placeholder="(555) 123-4567"
+                    placeholder="09123456789"
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
+                    className={validationErrors.phone ? 'border-red-500' : ''}
                   />
+                  {validationErrors.phone && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.phone}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Must start with 09 and be 11 digits total (optional)</p>
                 </div>
                 
                 <div>

@@ -5,12 +5,108 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
 import { MapPin, Phone, Mail, Clock, MessageCircle, Star, CheckCircle, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface HighFidelityContactProps {
   onSchedulePickup?: () => void;
+  onPhoneCall?: () => void;
+  onEmailContact?: () => void;
 }
 
-export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactProps) {
+export function HighFidelityContact({ onSchedulePickup, onPhoneCall, onEmailContact }: HighFidelityContactProps) {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    service: '',
+    message: ''
+  });
+
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+
+  // Validation functions
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Remove all non-digit characters
+    const digitsOnly = phone.replace(/\D/g, '');
+    // Check if it starts with 09 and has exactly 11 digits
+    return digitsOnly.startsWith('09') && digitsOnly.length === 11;
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear validation error when user starts typing
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+    
+    // Real-time validation
+    if (field === 'email' && value) {
+      if (!validateEmail(value)) {
+        setValidationErrors(prev => ({ ...prev, email: 'Please enter a valid email address with @' }));
+      }
+    }
+    
+    if (field === 'phone' && value) {
+      if (!validatePhone(value)) {
+        setValidationErrors(prev => ({ ...prev, phone: 'Phone number must start with 09 and be exactly 11 digits' }));
+      }
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate required fields
+    if (!formData.firstName || !formData.email) {
+      toast.error("Please fill out the required fields (Name and Email)");
+      return;
+    }
+
+    // Validate email format
+    if (!validateEmail(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    // Validate phone if provided
+    if (formData.phone && !validatePhone(formData.phone)) {
+      toast.error("Phone number must start with 09 and be exactly 11 digits");
+      return;
+    }
+
+    // Check for validation errors
+    if (Object.keys(validationErrors).length > 0) {
+      toast.error("Please fix the validation errors before submitting");
+      return;
+    }
+
+    toast.success("Message sent! We'll get back to you within 24 hours.");
+    
+    // Reset form
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      address: '',
+      service: '',
+      message: ''
+    });
+    setValidationErrors({});
+  };
   const contactInfo = [
     {
       icon: Phone,
@@ -60,7 +156,7 @@ export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactPro
         }}></div>
       </div>
 
-  <div className="relative max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-20">
           <Badge className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2">
             Get In Touch
@@ -88,14 +184,17 @@ export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactPro
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-6">
+              <form className="space-y-6" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-gray-700 font-medium">First Name</Label>
+                    <Label htmlFor="firstName" className="text-gray-700 font-medium">First Name *</Label>
                     <Input 
                       id="firstName" 
                       placeholder="John" 
+                      value={formData.firstName}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
                       className="bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -103,19 +202,27 @@ export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactPro
                     <Input 
                       id="lastName" 
                       placeholder="Doe" 
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
                       className="bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300"
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
+                  <Label htmlFor="email" className="text-gray-700 font-medium">Email Address *</Label>
                   <Input 
                     id="email" 
                     type="email" 
                     placeholder="john@example.com" 
-                    className="bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className={`bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300 ${validationErrors.email ? 'border-red-500' : ''}`}
+                    required
                   />
+                  {validationErrors.email && (
+                    <p className="text-red-500 text-sm">{validationErrors.email}</p>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -123,9 +230,15 @@ export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactPro
                   <Input 
                     id="phone" 
                     type="tel" 
-                    placeholder="(555) 123-4567" 
-                    className="bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300"
+                    placeholder="09123456789" 
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    className={`bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300 ${validationErrors.phone ? 'border-red-500' : ''}`}
                   />
+                  {validationErrors.phone && (
+                    <p className="text-red-500 text-sm">{validationErrors.phone}</p>
+                  )}
+                  <p className="text-xs text-gray-500">Must start with 09 and be 11 digits total (optional)</p>
                 </div>
                 
                 <div className="space-y-2">
@@ -133,6 +246,8 @@ export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactPro
                   <Input 
                     id="address" 
                     placeholder="123 Your Street, City, State" 
+                    value={formData.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
                     className="bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300"
                   />
                 </div>
@@ -141,13 +256,15 @@ export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactPro
                   <Label htmlFor="service" className="text-gray-700 font-medium">Service Needed</Label>
                   <select 
                     id="service"
+                    value={formData.service}
+                    onChange={(e) => handleInputChange('service', e.target.value)}
                     className="w-full px-3 py-2 bg-white/70 border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-400 transition-all duration-300"
                   >
-                    <option>Select a service</option>
-                    <option>Wash & Fold</option>
-                    <option>Dry Cleaning</option>
-                    <option>Pickup & Delivery</option>
-                    <option>Custom Quote</option>
+                    <option value="">Select a service</option>
+                    <option value="wash-fold">Wash & Fold</option>
+                    <option value="dry-clean">Dry Cleaning</option>
+                    <option value="pickup-delivery">Pickup & Delivery</option>
+                    <option value="custom">Custom Quote</option>
                   </select>
                 </div>
                 
@@ -157,16 +274,18 @@ export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactPro
                     id="message" 
                     placeholder="Tell us about your laundry needs or ask any questions..."
                     rows={4}
+                    value={formData.message}
+                    onChange={(e) => handleInputChange('message', e.target.value)}
                     className="bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300"
                   />
                 </div>
                 
                 <Button 
+                  type="submit"
                   className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 text-lg py-3"
                   size="lg"
-                  onClick={onSchedulePickup}
                 >
-                  Schedule Pickup & Get Quote
+                  Send Message & Get Quote
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </form>
@@ -242,6 +361,7 @@ export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactPro
                 variant="outline" 
                 size="lg"
                 className="border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-all duration-300 py-4"
+                onClick={onPhoneCall}
               >
                 <Phone className="w-5 h-5 mr-2" />
                 Call Now
@@ -250,9 +370,10 @@ export function HighFidelityContact({ onSchedulePickup }: HighFidelityContactPro
                 variant="outline" 
                 size="lg"
                 className="border-2 border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400 transition-all duration-300 py-4"
+                onClick={onEmailContact}
               >
                 <MessageCircle className="w-5 h-5 mr-2" />
-                Live Chat
+                Email Us
               </Button>
             </div>
           </div>
