@@ -4,7 +4,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
-import { Calendar, Clock, MapPin, User, Phone, Mail, Shirt, Star, CheckCircle, ArrowRight } from "lucide-react";
+import { Calendar, Clock, MapPin, User, Phone, Mail, Shirt, Star, CheckCircle, ArrowRight, DollarSign } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -46,10 +46,10 @@ export function SchedulePickupModal({ isOpen, onClose }: SchedulePickupModalProp
   }, []);
 
   const services = [
-    { id: 'wash-fold', name: 'Wash & Fold', price: '$1.50/lb', description: 'Standard laundry service' },
-    { id: 'dry-clean', name: 'Dry Cleaning', price: '$8.99/item', description: 'Professional dry cleaning' },
-    { id: 'premium', name: 'Premium Care', price: '$2.50/lb', description: 'Delicate fabric handling' },
-    { id: 'express', name: 'Express Service', price: '+$10', description: '24-hour turnaround' }
+    { id: 'wash-fold', name: 'Wash & Fold', price: '$1.50/lb', basePrice: 1.50, unit: 'lb', description: 'Standard laundry service' },
+    { id: 'dry-clean', name: 'Dry Cleaning', price: '$8.99/item', basePrice: 8.99, unit: 'item', description: 'Professional dry cleaning' },
+    { id: 'premium', name: 'Premium Care', price: '$2.50/lb', basePrice: 2.50, unit: 'lb', description: 'Delicate fabric handling' },
+    { id: 'express', name: 'Express Service', price: '+$10', basePrice: 10, unit: 'flat', description: '24-hour turnaround' }
   ];
 
   const timeSlots = [
@@ -74,6 +74,70 @@ export function SchedulePickupModal({ isOpen, onClose }: SchedulePickupModalProp
     return digitsOnly.startsWith('09') && digitsOnly.length === 11;
   };
 
+  const validateZipCode = (zipCode: string): boolean => {
+    // Philippines postal codes are 4 digits
+    const digitsOnly = zipCode.replace(/\D/g, '');
+    return digitsOnly.length === 4;
+  };
+
+  const validateCity = (city: string): boolean => {
+    // City should be at least 2 characters and contain only letters, spaces, and basic punctuation
+    const cityRegex = /^[a-zA-Z\s\-\.\']{2,}$/;
+    return cityRegex.test(city.trim());
+  };
+
+  // Price calculation function
+  const calculatePrice = () => {
+    const selectedService = services.find(s => s.id === formData.service);
+    if (!selectedService) return null;
+
+    const weight = parseFloat(formData.estimatedWeight) || 10; // Default to 10 lbs if not specified
+    let baseTotal = 0;
+
+    // Calculate base price based on service type
+    if (selectedService.unit === 'lb') {
+      baseTotal = selectedService.basePrice * weight;
+    } else if (selectedService.unit === 'item') {
+      // For dry cleaning, estimate items based on weight (roughly 2 lbs per item)
+      const estimatedItems = Math.max(1, Math.ceil(weight / 2));
+      baseTotal = selectedService.basePrice * estimatedItems;
+    } else {
+      // Flat fee for express service
+      baseTotal = selectedService.basePrice;
+    }
+
+    // Add urgency fees
+    let urgencyFee = 0;
+    if (formData.urgency === 'express') {
+      urgencyFee = 10;
+    } else if (formData.urgency === 'same-day') {
+      urgencyFee = 25;
+    }
+
+    // Add pickup fee for heavy loads (over 20 lbs)
+    const heavyLoadFee = weight > 20 ? 5 : 0;
+
+    const subtotal = baseTotal + urgencyFee + heavyLoadFee;
+    const tax = subtotal * 0.08; // 8% tax
+    const total = subtotal + tax;
+
+    return {
+      baseTotal,
+      urgencyFee,
+      heavyLoadFee,
+      subtotal,
+      tax,
+      total,
+      weight,
+      serviceName: selectedService.name,
+      serviceUnit: selectedService.unit,
+      urgencyName: formData.urgency === 'express' ? 'Express (24-48 hours)' : 
+                   formData.urgency === 'same-day' ? 'Same Day' : 'Standard (2-3 days)'
+    };
+  };
+
+  const priceBreakdown = calculatePrice();
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
@@ -96,6 +160,18 @@ export function SchedulePickupModal({ isOpen, onClose }: SchedulePickupModalProp
     if (field === 'phone' && value) {
       if (!validatePhone(value)) {
         setValidationErrors(prev => ({ ...prev, phone: 'Phone number must start with 09 and be exactly 11 digits' }));
+      }
+    }
+    
+    if (field === 'zipCode' && value) {
+      if (!validateZipCode(value)) {
+        setValidationErrors(prev => ({ ...prev, zipCode: 'ZIP code must be exactly 4 digits' }));
+      }
+    }
+    
+    if (field === 'city' && value) {
+      if (!validateCity(value)) {
+        setValidationErrors(prev => ({ ...prev, city: 'Please enter a valid city name (letters only)' }));
       }
     }
     
@@ -147,12 +223,15 @@ export function SchedulePickupModal({ isOpen, onClose }: SchedulePickupModalProp
     
     // Create summary for confirmation
     const selectedService = services.find(s => s.id === formData.service);
+    const finalPriceBreakdown = calculatePrice();
     const summary = `
 Pickup Details:
 • Date: ${new Date(formData.pickupDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
 • Time: ${formData.pickupTime}
 • Service: ${selectedService?.name}
+• Weight: ${formData.estimatedWeight} lbs
 • Address: ${formData.address}, ${formData.city} ${formData.zipCode}
+${finalPriceBreakdown ? `• Estimated Total: $${finalPriceBreakdown.total.toFixed(2)}` : ''}
     `.trim();
     
     // Simulate form submission
@@ -194,7 +273,10 @@ Pickup Details:
                validatePhone(formData.phone) &&
                Object.keys(validationErrors).length === 0;
       case 2:
-        return formData.address && formData.city && formData.zipCode;
+        return formData.address && 
+               formData.city && validateCity(formData.city) &&
+               formData.zipCode && validateZipCode(formData.zipCode) &&
+               !validationErrors.city && !validationErrors.zipCode;
       case 3:
         // Validate pickup date is not in the past
         if (formData.pickupDate) {
@@ -205,7 +287,7 @@ Pickup Details:
             return false;
           }
         }
-        return formData.pickupDate && formData.pickupTime && formData.service;
+        return formData.pickupDate && formData.pickupTime && formData.service && formData.estimatedWeight;
       default:
         return false;
     }
@@ -349,9 +431,13 @@ Pickup Details:
                     id="city"
                     value={formData.city}
                     onChange={(e) => handleInputChange('city', e.target.value)}
-                    placeholder="Your City"
-                    className="focus:border-green-400 focus:ring-green-400"
+                    placeholder="Manila"
+                    className={`focus:border-green-400 focus:ring-green-400 ${validationErrors.city ? 'border-red-500' : ''}`}
                   />
+                  {validationErrors.city && (
+                    <p className="text-red-500 text-sm">{validationErrors.city}</p>
+                  )}
+                  <p className="text-xs text-gray-500">Enter your city name (letters only)</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="zipCode">ZIP Code *</Label>
@@ -359,9 +445,14 @@ Pickup Details:
                     id="zipCode"
                     value={formData.zipCode}
                     onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                    placeholder="12345"
-                    className="focus:border-green-400 focus:ring-green-400"
+                    placeholder="1234"
+                    className={`focus:border-green-400 focus:ring-green-400 ${validationErrors.zipCode ? 'border-red-500' : ''}`}
+                    maxLength={4}
                   />
+                  {validationErrors.zipCode && (
+                    <p className="text-red-500 text-sm">{validationErrors.zipCode}</p>
+                  )}
+                  <p className="text-xs text-gray-500">Must be exactly 4 digits</p>
                 </div>
               </div>
 
@@ -440,36 +531,63 @@ Pickup Details:
               <div className="space-y-3">
                 <Label>Service Type *</Label>
                 <div className="grid grid-cols-2 gap-3">
-                  {services.map((service) => (
-                    <div
-                      key={service.id}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                        formData.service === service.id
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:border-purple-300'
-                      }`}
-                      onClick={() => handleInputChange('service', service.id)}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium">{service.name}</h4>
-                        <Badge variant="secondary">{service.price}</Badge>
+                  {services.map((service) => {
+                    // Calculate price for this specific service
+                    const weight = parseFloat(formData.estimatedWeight) || 10;
+                    let estimatedCost = 0;
+                    if (service.unit === 'lb') {
+                      estimatedCost = service.basePrice * weight;
+                    } else if (service.unit === 'item') {
+                      const estimatedItems = Math.max(1, Math.ceil(weight / 2));
+                      estimatedCost = service.basePrice * estimatedItems;
+                    } else {
+                      estimatedCost = service.basePrice;
+                    }
+
+                    return (
+                      <div
+                        key={service.id}
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                          formData.service === service.id
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-purple-300'
+                        }`}
+                        onClick={() => handleInputChange('service', service.id)}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium">{service.name}</h4>
+                          <div className="text-right">
+                            <Badge variant="secondary">{service.price}</Badge>
+                            {formData.estimatedWeight && (
+                              <p className="text-xs text-purple-600 mt-1 font-medium">
+                                ≈ ${estimatedCost.toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600">{service.description}</p>
                       </div>
-                      <p className="text-sm text-gray-600">{service.description}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="estimatedWeight">Estimated Weight (lbs)</Label>
+                  <Label htmlFor="estimatedWeight">Estimated Weight (lbs) *</Label>
                   <Input
                     id="estimatedWeight"
+                    type="number"
+                    min="1"
+                    max="50"
                     value={formData.estimatedWeight}
                     onChange={(e) => handleInputChange('estimatedWeight', e.target.value)}
                     placeholder="e.g., 15"
                     className="focus:border-purple-400 focus:ring-purple-400"
                   />
+                  <p className="text-xs text-gray-500">
+                    💡 Typical load: 8-12 lbs (one week of laundry for one person)
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="urgency">Service Speed</Label>
@@ -498,6 +616,81 @@ Pickup Details:
                 />
               </div>
 
+              {/* Pricing Summary */}
+              {priceBreakdown && (
+                <div className="bg-blue-50 p-6 rounded-xl border border-blue-200">
+                  <h4 className="font-bold text-blue-900 mb-4 flex items-center">
+                    <DollarSign className="w-5 h-5 mr-2" />
+                    Estimated Cost
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-blue-700">Service:</span>
+                          <span className="font-medium text-blue-900">{priceBreakdown.serviceName}</span>
+                        </div>
+                        {priceBreakdown.serviceUnit === 'lb' && (
+                          <div className="flex justify-between mb-1">
+                            <span className="text-blue-600">{priceBreakdown.weight} lbs:</span>
+                            <span className="font-medium">${priceBreakdown.baseTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {priceBreakdown.serviceUnit === 'item' && (
+                          <div className="flex justify-between mb-1">
+                            <span className="text-blue-600">Est. {Math.ceil(priceBreakdown.weight / 2)} items:</span>
+                            <span className="font-medium">${priceBreakdown.baseTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {priceBreakdown.serviceUnit === 'flat' && (
+                          <div className="flex justify-between mb-1">
+                            <span className="text-blue-600">Service fee:</span>
+                            <span className="font-medium">${priceBreakdown.baseTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-blue-700">Speed:</span>
+                          <span className="font-medium text-blue-900">{priceBreakdown.urgencyName}</span>
+                        </div>
+                        {priceBreakdown.urgencyFee > 0 && (
+                          <div className="flex justify-between mb-1">
+                            <span className="text-blue-600">Rush fee:</span>
+                            <span className="font-medium">+${priceBreakdown.urgencyFee.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {priceBreakdown.heavyLoadFee > 0 && (
+                          <div className="flex justify-between mb-1">
+                            <span className="text-blue-600">Heavy load:</span>
+                            <span className="font-medium">+${priceBreakdown.heavyLoadFee.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-blue-300 pt-3">
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-blue-700">Subtotal:</span>
+                        <span className="font-medium">${priceBreakdown.subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mb-2">
+                        <span className="text-blue-700">Tax (8%):</span>
+                        <span className="font-medium">${priceBreakdown.tax.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center font-bold text-lg text-blue-900 bg-white/60 p-2 rounded">
+                        <span>Total Estimate:</span>
+                        <span>${priceBreakdown.total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-xs text-blue-600 bg-white/60 p-2 rounded">
+                      💡 Final price may vary based on actual weight and any special requirements
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Date/Time Summary */}
               {formData.pickupDate && formData.pickupTime && (
                 <div className="bg-green-50 p-4 rounded-lg border border-green-200">
@@ -516,6 +709,11 @@ Pickup Details:
                   <p className="text-green-700 text-sm">
                     🧺 {services.find(s => s.id === formData.service)?.name}
                   </p>
+                  {priceBreakdown && (
+                    <p className="text-green-700 text-sm font-medium">
+                      💰 Estimated: ${priceBreakdown.total.toFixed(2)}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

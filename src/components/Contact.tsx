@@ -20,6 +20,8 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
     email: '',
     phone: '',
     address: '',
+    city: '',
+    zipCode: '',
     message: ''
   });
 
@@ -72,6 +74,18 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
     return digitsOnly.startsWith('09') && digitsOnly.length === 11;
   };
 
+  const validateZipCode = (zipCode: string): boolean => {
+    // Philippines postal codes are 4 digits
+    const digitsOnly = zipCode.replace(/\D/g, '');
+    return digitsOnly.length === 4;
+  };
+
+  const validateCity = (city: string): boolean => {
+    // City should be at least 2 characters and contain only letters, spaces, and basic punctuation
+    const cityRegex = /^[a-zA-Z\s\-\.\']{2,}$/;
+    return cityRegex.test(city.trim());
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
@@ -94,6 +108,18 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
     if (field === 'phone' && value) {
       if (!validatePhone(value)) {
         setValidationErrors(prev => ({ ...prev, phone: 'Phone number must start with 09 and be exactly 11 digits' }));
+      }
+    }
+    
+    if (field === 'zipCode' && value) {
+      if (!validateZipCode(value)) {
+        setValidationErrors(prev => ({ ...prev, zipCode: 'ZIP code must be exactly 4 digits' }));
+      }
+    }
+    
+    if (field === 'city' && value) {
+      if (!validateCity(value)) {
+        setValidationErrors(prev => ({ ...prev, city: 'Please enter a valid city name (letters only)' }));
       }
     }
   };
@@ -134,6 +160,8 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
       email: '',
       phone: '',
       address: '',
+      city: '',
+      zipCode: '',
       message: ''
     });
     setValidationErrors({});
@@ -223,13 +251,45 @@ export function Contact({ onPhoneCall, onEmailContact, onSchedulePickup }: Conta
                 </div>
                 
                 <div>
-                  <Label htmlFor="address">Pickup Address</Label>
+                  <Label htmlFor="address">Street Address</Label>
                   <Input 
                     id="address" 
-                    placeholder="123 Your Street, City, State"
+                    placeholder="123 Your Street, Apt 2B"
                     value={formData.address}
                     onChange={(e) => handleInputChange('address', e.target.value)}
                   />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="city">City</Label>
+                    <Input 
+                      id="city" 
+                      placeholder="Manila"
+                      value={formData.city}
+                      onChange={(e) => handleInputChange('city', e.target.value)}
+                      className={validationErrors.city ? 'border-red-500' : ''}
+                    />
+                    {validationErrors.city && (
+                      <p className="text-red-500 text-sm mt-1">{validationErrors.city}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Enter your city name (letters only)</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="zipCode">ZIP Code</Label>
+                    <Input 
+                      id="zipCode" 
+                      placeholder="1234"
+                      value={formData.zipCode}
+                      onChange={(e) => handleInputChange('zipCode', e.target.value)}
+                      className={validationErrors.zipCode ? 'border-red-500' : ''}
+                      maxLength={4}
+                    />
+                    {validationErrors.zipCode && (
+                      <p className="text-red-500 text-sm mt-1">{validationErrors.zipCode}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Must be exactly 4 digits</p>
+                  </div>
                 </div>
                 
                 <div>

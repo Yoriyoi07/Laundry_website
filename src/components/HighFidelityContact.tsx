@@ -21,6 +21,8 @@ export function HighFidelityContact({ onSchedulePickup, onPhoneCall, onEmailCont
     email: '',
     phone: '',
     address: '',
+    city: '',
+    zipCode: '',
     service: '',
     message: ''
   });
@@ -38,6 +40,18 @@ export function HighFidelityContact({ onSchedulePickup, onPhoneCall, onEmailCont
     const digitsOnly = phone.replace(/\D/g, '');
     // Check if it starts with 09 and has exactly 11 digits
     return digitsOnly.startsWith('09') && digitsOnly.length === 11;
+  };
+
+  const validateZipCode = (zipCode: string): boolean => {
+    // Philippines postal codes are 4 digits
+    const digitsOnly = zipCode.replace(/\D/g, '');
+    return digitsOnly.length === 4;
+  };
+
+  const validateCity = (city: string): boolean => {
+    // City should be at least 2 characters and contain only letters, spaces, and basic punctuation
+    const cityRegex = /^[a-zA-Z\s\-\.\']{2,}$/;
+    return cityRegex.test(city.trim());
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -62,6 +76,18 @@ export function HighFidelityContact({ onSchedulePickup, onPhoneCall, onEmailCont
     if (field === 'phone' && value) {
       if (!validatePhone(value)) {
         setValidationErrors(prev => ({ ...prev, phone: 'Phone number must start with 09 and be exactly 11 digits' }));
+      }
+    }
+    
+    if (field === 'zipCode' && value) {
+      if (!validateZipCode(value)) {
+        setValidationErrors(prev => ({ ...prev, zipCode: 'ZIP code must be exactly 4 digits' }));
+      }
+    }
+    
+    if (field === 'city' && value) {
+      if (!validateCity(value)) {
+        setValidationErrors(prev => ({ ...prev, city: 'Please enter a valid city name (letters only)' }));
       }
     }
   };
@@ -102,6 +128,8 @@ export function HighFidelityContact({ onSchedulePickup, onPhoneCall, onEmailCont
       email: '',
       phone: '',
       address: '',
+      city: '',
+      zipCode: '',
       service: '',
       message: ''
     });
@@ -242,14 +270,46 @@ export function HighFidelityContact({ onSchedulePickup, onPhoneCall, onEmailCont
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="address" className="text-gray-700 font-medium">Pickup Address</Label>
+                  <Label htmlFor="address" className="text-gray-700 font-medium">Street Address</Label>
                   <Input 
                     id="address" 
-                    placeholder="123 Your Street, City, State" 
+                    placeholder="123 Your Street, Apt 2B" 
                     value={formData.address}
                     onChange={(e) => handleInputChange('address', e.target.value)}
                     className="bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300"
                   />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city" className="text-gray-700 font-medium">City</Label>
+                    <Input 
+                      id="city" 
+                      placeholder="Manila" 
+                      value={formData.city}
+                      onChange={(e) => handleInputChange('city', e.target.value)}
+                      className={`bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300 ${validationErrors.city ? 'border-red-500' : ''}`}
+                    />
+                    {validationErrors.city && (
+                      <p className="text-red-500 text-sm">{validationErrors.city}</p>
+                    )}
+                    <p className="text-xs text-gray-500">Enter your city name (letters only)</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zipCode" className="text-gray-700 font-medium">ZIP Code</Label>
+                    <Input 
+                      id="zipCode" 
+                      placeholder="1234" 
+                      value={formData.zipCode}
+                      onChange={(e) => handleInputChange('zipCode', e.target.value)}
+                      className={`bg-white/70 border-gray-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-300 ${validationErrors.zipCode ? 'border-red-500' : ''}`}
+                      maxLength={4}
+                    />
+                    {validationErrors.zipCode && (
+                      <p className="text-red-500 text-sm">{validationErrors.zipCode}</p>
+                    )}
+                    <p className="text-xs text-gray-500">Must be exactly 4 digits</p>
+                  </div>
                 </div>
                 
                 <div className="space-y-2">

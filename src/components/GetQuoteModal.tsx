@@ -19,6 +19,8 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
     email: '',
     phone: '',
     address: '',
+    city: '',
+    zipCode: '',
     serviceType: 'wash-fold',
     frequency: 'weekly',
     estimatedWeight: '',
@@ -82,6 +84,18 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
     return digitsOnly.startsWith('09') && digitsOnly.length === 11;
   };
 
+  const validateZipCode = (zipCode: string): boolean => {
+    // Philippines postal codes are 4 digits
+    const digitsOnly = zipCode.replace(/\D/g, '');
+    return digitsOnly.length === 4;
+  };
+
+  const validateCity = (city: string): boolean => {
+    // City should be at least 2 characters and contain only letters, spaces, and basic punctuation
+    const cityRegex = /^[a-zA-Z\s\-\.\']{2,}$/;
+    return cityRegex.test(city.trim());
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
@@ -104,6 +118,18 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
     if (field === 'phone' && value) {
       if (!validatePhone(value)) {
         setValidationErrors(prev => ({ ...prev, phone: 'Phone number must start with 09 and be exactly 11 digits' }));
+      }
+    }
+    
+    if (field === 'zipCode' && value) {
+      if (!validateZipCode(value)) {
+        setValidationErrors(prev => ({ ...prev, zipCode: 'ZIP code must be exactly 4 digits' }));
+      }
+    }
+    
+    if (field === 'city' && value) {
+      if (!validateCity(value)) {
+        setValidationErrors(prev => ({ ...prev, city: 'Please enter a valid city name (letters only)' }));
       }
     }
   };
@@ -168,6 +194,8 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
       email: '',
       phone: '',
       address: '',
+      city: '',
+      zipCode: '',
       serviceType: 'wash-fold',
       frequency: 'weekly',
       estimatedWeight: '',
@@ -193,6 +221,9 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
                validateEmail(formData.email) &&
                formData.phone && 
                validatePhone(formData.phone) &&
+               formData.address &&
+               formData.city && validateCity(formData.city) &&
+               formData.zipCode && validateZipCode(formData.zipCode) &&
                Object.keys(validationErrors).length === 0;
       case 2:
         return formData.serviceType && formData.frequency;
@@ -432,14 +463,46 @@ export function GetQuoteModal({ isOpen, onClose }: GetQuoteModalProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Service Address</Label>
+                <Label htmlFor="address">Street Address *</Label>
                 <Input
                   id="address"
                   value={formData.address}
                   onChange={(e) => handleInputChange('address', e.target.value)}
-                  placeholder="123 Main Street, City, State"
+                  placeholder="123 Main Street, Apt 2B"
                   className="focus:border-blue-400 focus:ring-blue-400"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="city">City *</Label>
+                  <Input
+                    id="city"
+                    value={formData.city}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                    placeholder="Manila"
+                    className={`focus:border-blue-400 focus:ring-blue-400 ${validationErrors.city ? 'border-red-500' : ''}`}
+                  />
+                  {validationErrors.city && (
+                    <p className="text-red-500 text-sm">{validationErrors.city}</p>
+                  )}
+                  <p className="text-xs text-gray-500">Enter your city name (letters only)</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="zipCode">ZIP Code *</Label>
+                  <Input
+                    id="zipCode"
+                    value={formData.zipCode}
+                    onChange={(e) => handleInputChange('zipCode', e.target.value)}
+                    placeholder="1234"
+                    className={`focus:border-blue-400 focus:ring-blue-400 ${validationErrors.zipCode ? 'border-red-500' : ''}`}
+                    maxLength={4}
+                  />
+                  {validationErrors.zipCode && (
+                    <p className="text-red-500 text-sm">{validationErrors.zipCode}</p>
+                  )}
+                  <p className="text-xs text-gray-500">Must be exactly 4 digits</p>
+                </div>
               </div>
 
               <div className="space-y-2">
